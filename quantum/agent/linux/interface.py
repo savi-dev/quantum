@@ -224,6 +224,7 @@ class RyuInterfaceDriver(OVSInterfaceDriver):
         datapath_id = ovs_br.get_datapath_id()
         port_no = ovs_br.get_port_ofport(device_name)
         self.ryu_client.create_port(network_id, datapath_id, port_no)
+        self.ryu_client.add_mac(network_id, mac_address)
 
 
 class OVSVethInterfaceDriver(OVSInterfaceDriver):

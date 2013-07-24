@@ -68,6 +68,7 @@ class LibvirtOpenVswitchOFPRyuDriver(libvirt_vif.LibvirtHybridOVSBridgeDriver):
         try:
             self.ryu_client.create_port(network['id'], self.datapath_id,
                                         port_no)
+            self.ryu_client.add_mac(network['id'], mapping['mac'])
         except httplib.HTTPException as e:
             res = e.args[0]
             if res.status != httplib.CONFLICT:
