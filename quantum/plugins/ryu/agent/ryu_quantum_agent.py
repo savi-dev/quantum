@@ -146,6 +146,10 @@ class OVSQuantumOFPRyuAgent:
     def _port_update(self, network_id, port):
         self.api.update_port(network_id, port.switch.datapath_id, port.ofport)
 
+        # Update MAC to network association as well, just incase
+        if port.vif_mac:
+            self.api.add_mac(network_id, port.vif_mac)
+
     def _all_bindings(self, db):
         """return interface id -> port which include network id bindings"""
         return dict((port.id, port) for port in db.ports.all())
