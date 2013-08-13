@@ -69,6 +69,7 @@ class L3NATAgent(object):
         cfg.StrOpt('admin_tenant_name'),
         cfg.StrOpt('auth_url'),
         cfg.StrOpt('auth_strategy', default='keystone'),
+        cfg.StrOpt('endpoint_url', default='http://localhost:9696'),
         cfg.StrOpt('auth_region'),
         cfg.StrOpt('root_helper', default='sudo'),
         cfg.StrOpt('external_network_bridge', default='br-ex',
@@ -170,7 +171,8 @@ class L3NATAgent(object):
             auth_url=self.conf.auth_url,
             auth_strategy=self.conf.auth_strategy,
             auth_region=self.conf.auth_region,
-            region_name=self.conf.auth_region
+            region_name=self.conf.auth_region,
+            endpoint_url=self.conf.endpoint_url
         )
         LOG.debug(_("Client session established!"))
 
