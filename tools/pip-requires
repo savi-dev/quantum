@@ -10,7 +10,6 @@ iso8601>=0.1.4
 kombu==1.0.4
 lxml
 netaddr
-python-quantumclient>=2.0
 pyudev
 sqlalchemy>0.6.4,<=0.7.9
 webob==1.0.8
