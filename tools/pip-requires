@@ -11,5 +11,5 @@ kombu==1.0.4
 lxml
 netaddr
 pyudev
-sqlalchemy>0.6.4,<=0.7.9
+sqlalchemy==0.7.9
 webob==1.0.8
