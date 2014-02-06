@@ -26,3 +26,5 @@ subunit.log
 *.mo
 *.swp
 *.swo
+.project
+.pydevproject

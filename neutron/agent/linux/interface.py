@@ -29,6 +29,7 @@ from neutron.extensions.flavor import (FLAVOR_NETWORK)
 from neutron.openstack.common import importutils
 from neutron.openstack.common import log as logging
 
+from janus.network.network import JanusNetworkDriver
 
 LOG = logging.getLogger(__name__)
 
@@ -55,7 +56,10 @@ OPTS = [
     cfg.StrOpt('auth_strategy', default='keystone',
                help=_("The type of authentication to use")),
     cfg.StrOpt('auth_region',
-               help=_("Authentication region")),
+               help=_("Authentication region")),        
+    cfg.StrOpt('janus_api_host',
+               default = '127.0.0.1:8091',
+               help = 'Openflow Janus REST API host:port'),
 ]
 
 
@@ -217,6 +221,86 @@ class OVSInterfaceDriver(LinuxInterfaceDriver):
         except RuntimeError:
             LOG.error(_("Failed unplugging interface '%s'"),
                       device_name)
+
+class JanusOVSInterfaceDriver(OVSInterfaceDriver):
+    """Driver for creating a Janus OVS interface."""
+
+    def __init__(self, conf):
+        super(JanusOVSInterfaceDriver, self).__init__(conf)
+        self.conf.register_opts(OPTS)
+        traceback.print_stack()
+
+        if not self.conf.janus_api_host:
+            LOG.error(_('You must specify Janus API host and address (e.g. 127.0.0.1:8091'))
+            sys.exit(1)
+
+        if not self.conf.ovs_integration_bridge:
+            LOG.error(_('You must specify the name of the OVS integration bridge'))
+            sys.exit(1)
+        LOG.debug('Janus rest host %s', self.conf.janus_api_host)
+        host, port = self.conf.janus_api_host.split(':')
+        self.client = JanusNetworkDriver(host, port)
+        self.device2netid = {}
+
+    def plug(self, network_id, port_id, device_name, mac_address,
+             bridge = None, namespace = None, prefix = None, internal_cidr = None, port_type = 'NORMAL'):
+        """Plug in the interface."""
+        super(JanusOVSInterfaceDriver, self).plug(network_id, port_id, device_name,
+                                             mac_address, bridge = bridge,
+                                             namespace = namespace,
+                                             prefix = prefix)
+        if not bridge:
+            bridge = self.conf.ovs_integration_bridge
+        self.check_bridge_exists(bridge)
+        ovs_br = ovs_lib.OVSBridge(bridge, self.conf.root_helper)
+        datapath_id = ovs_br.get_datapath_id()
+        tap_name = self._get_tap_name(device_name, prefix)
+        port_no = ovs_br.get_port_ofport(tap_name)
+        if bridge == self.conf.ovs_integration_bridge:
+            self.client.createPort(network_id, datapath_id, port_no, port_type)
+            self.client.addMAC(network_id, mac_address)
+            if internal_cidr is not None:
+                ip = internal_cidr.split("/")[0]
+                self.client.ip_mac_mapping(network_id, datapath_id, mac_address, ip, port_no, port_type)
+            self.device2netid[device_name] = network_id
+
+    def unplug(self, device_name, bridge = None, namespace = None, prefix = None, network_id = None):
+        """Unplug the interface."""
+        # Unregistering port and disassociating MAC from network done by q-svc in
+        #   the main Janus plugin file. This is because q-svc deletes network before
+        #   q-dhcp unregisters the port, resulting in an error in Janus.
+        #   In the future, perhaps Janus can auto-unregister ports in a deleted network?
+        #   Currently this is not done to prevent users from accidentally deleting their
+        #   entire network, including all the ports.
+
+        # To do: Un-mapping of ip to mac?
+
+        if not bridge:
+            bridge = self.conf.ovs_integration_bridge
+
+        self.check_bridge_exists(bridge)
+        ovs_br = ovs_lib.OVSBridge(bridge, self.conf.root_helper)
+        datapath_id = ovs_br.get_datapath_id()
+        tap_name = self._get_tap_name(device_name, prefix)
+        port_no = ovs_br.get_port_ofport(tap_name)
+
+        super(JanusOVSInterfaceDriver, self).unplug(device_name, bridge,
+                                                    namespace, prefix)
+        if bridge == self.conf.ovs_integration_bridge:
+            try:
+                if network_id == None:
+                    network_id = self.device2netid[device_name]
+                self.client.deletePort(network_id, datapath_id, port_no)
+            except:
+                traceback.print_exc()
+                pass
+
+    def lease_remaining(self, network_id, ip_address, mac_address, lease_remaining):
+        try:
+            self.client.lease_remaining(network_id, ip_address, mac_address, lease_remaining)
+        except:
+            traceback.print_exc()
+
 
 
 class IVSInterfaceDriver(LinuxInterfaceDriver):

@@ -689,6 +689,13 @@ class DeviceManager(object):
         port = self.setup_dhcp_port(network)
         interface_name = self.get_interface_name(network, port)
 
+        ip_cidrs = []
+        for fixed_ip in port.fixed_ips:
+            subnet = fixed_ip.subnet
+            net = netaddr.IPNetwork(subnet.cidr)
+            ip_cidr = '%s/%s' % (fixed_ip.ip_address, net.prefixlen)
+            ip_cidrs.append(ip_cidr)
+
         if ip_lib.device_exists(interface_name,
                                 self.root_helper,
                                 network.namespace):
@@ -702,14 +709,8 @@ class DeviceManager(object):
                              port.id,
                              interface_name,
                              port.mac_address,
-                             namespace=network.namespace)
-        ip_cidrs = []
-        for fixed_ip in port.fixed_ips:
-            subnet = fixed_ip.subnet
-            net = netaddr.IPNetwork(subnet.cidr)
-            ip_cidr = '%s/%s' % (fixed_ip.ip_address, net.prefixlen)
-            ip_cidrs.append(ip_cidr)
-
+                             namespace=network.namespace,
+                             internal_cidr = ip_cidrs[0], port_type = 'DHCP')
         if (self.conf.enable_isolated_metadata and
             self.conf.use_namespaces):
             ip_cidrs.append(METADATA_DEFAULT_CIDR)
@@ -735,7 +736,7 @@ class DeviceManager(object):
 
     def destroy(self, network, device_name):
         """Destroy the device used for the network's DHCP on this host."""
-        self.driver.unplug(device_name, namespace=network.namespace)
+        self.driver.unplug(device_name, namespace=network.namespace, network_id = network.id)
 
         self.plugin.release_dhcp_port(network.id,
                                       self.get_device_id(network))

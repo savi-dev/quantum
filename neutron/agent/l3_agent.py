@@ -385,7 +385,7 @@ class L3NATAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
 
         for p in old_ports:
             ri.internal_ports.remove(p)
-            self.internal_network_removed(ri, p['id'], p['ip_cidr'])
+            self.internal_network_removed(ri, p['id'], p['ip_cidr'], p['network_id'])
 
         internal_cidrs = [p['ip_cidr'] for p in ri.internal_ports]
         # TODO(salv-orlando): RouterInfo would be a better place for
@@ -580,20 +580,20 @@ class L3NATAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
                                     namespace=ri.ns_name()):
             self.driver.plug(network_id, port_id, interface_name, mac_address,
                              namespace=ri.ns_name(),
-                             prefix=INTERNAL_DEV_PREFIX)
+                             prefix = INTERNAL_DEV_PREFIX, internal_cidr = internal_cidr, port_type = "ROUTER")
 
         self.driver.init_l3(interface_name, [internal_cidr],
                             namespace=ri.ns_name())
         ip_address = internal_cidr.split('/')[0]
         self._send_gratuitous_arp_packet(ri, interface_name, ip_address)
 
-    def internal_network_removed(self, ri, port_id, internal_cidr):
+    def internal_network_removed(self, ri, port_id, internal_cidr, network_id):
         interface_name = self.get_internal_device_name(port_id)
         if ip_lib.device_exists(interface_name,
                                 root_helper=self.root_helper,
                                 namespace=ri.ns_name()):
             self.driver.unplug(interface_name, namespace=ri.ns_name(),
-                               prefix=INTERNAL_DEV_PREFIX)
+                               prefix=INTERNAL_DEV_PREFIX, network_id=network_id)
 
     def internal_network_nat_rules(self, ex_gw_ip, internal_cidr):
         rules = [('snat', '-s %s -j SNAT --to-source %s' %
