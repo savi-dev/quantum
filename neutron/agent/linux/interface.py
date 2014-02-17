@@ -228,7 +228,7 @@ class JanusOVSInterfaceDriver(OVSInterfaceDriver):
     def __init__(self, conf):
         super(JanusOVSInterfaceDriver, self).__init__(conf)
         self.conf.register_opts(OPTS)
-        traceback.print_stack()
+        #traceback.print_stack()
 
         if not self.conf.janus_api_host:
             LOG.error(_('You must specify Janus API host and address (e.g. 127.0.0.1:8091'))
@@ -292,14 +292,15 @@ class JanusOVSInterfaceDriver(OVSInterfaceDriver):
                     network_id = self.device2netid[device_name]
                 self.client.deletePort(network_id, datapath_id, port_no)
             except:
-                traceback.print_exc()
+                #traceback.print_exc()
                 pass
 
     def lease_remaining(self, network_id, ip_address, mac_address, lease_remaining):
         try:
             self.client.lease_remaining(network_id, ip_address, mac_address, lease_remaining)
         except:
-            traceback.print_exc()
+            #traceback.print_exc()
+            pass
 
 
 
