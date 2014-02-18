@@ -45,7 +45,7 @@ from neutron.openstack.common import log
 from neutron.openstack.common.rpc import dispatcher
 from neutron.plugins.janus.common import config  # noqa
 
-from janus.network.network import JanusNetworkDriver
+from janus.network.network_driver import JanusNetworkDriver
 from janus.network.common.network_ids import NW_ID_EXTERNAL
 
 LOG = log.getLogger(__name__)
@@ -159,7 +159,7 @@ class OVSBridge(ovs_lib.OVSBridge):
         #    return
 
         ofport = self.get_ofport(name)
-        return VifPort(name, ofport, None, None, self)
+        return VifPort(name, ofport, "", "", self)
 
     def get_external_ports(self):
         return self._get_ports(self._get_external_port)
@@ -174,7 +174,7 @@ class VifPortSet(object):
     def setup(self):
         for port in self.int_br.get_external_ports():
             LOG.debug(_('External port %s'), port)
-            self.api.update_port(rest_nw_id.NW_ID_EXTERNAL,
+            self.api.updatePort(NW_ID_EXTERNAL,
                                  port.switch.datapath_id, port.ofport)
 
 
