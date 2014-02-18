@@ -44,7 +44,7 @@ from neutron.plugins.janus.common import config  # noqa
 from neutron.plugins.janus.db import api_v2 as db_api_v2
 
 from janus.network.network import ignore_http_not_found
-from janus.network.network import JanusNetworkDriver
+from janus.network.network_driver import JanusNetworkDriver
 
 from janus.network.common.network_ids import NW_ID_EXTERNAL
 

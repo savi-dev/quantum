@@ -29,7 +29,7 @@ from neutron.extensions.flavor import (FLAVOR_NETWORK)
 from neutron.openstack.common import importutils
 from neutron.openstack.common import log as logging
 
-from janus.network.network import JanusNetworkDriver
+from janus.network.network_driver import JanusNetworkDriver
 
 LOG = logging.getLogger(__name__)
 
