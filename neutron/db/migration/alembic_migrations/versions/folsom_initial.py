@@ -37,6 +37,7 @@ PLUGINS = {
     'plumgrid': 'neutron.plugins.plumgrid.plumgrid_plugin.plumgrid_plugin.'
                 'NeutronPluginPLUMgridV2',
     'ryu': 'neutron.plugins.ryu.ryu_neutron_plugin.RyuNeutronPluginV2',
+    'janus': 'neutron.plugins.janus.janus_neutron_plugin.JanusNeutronPluginV2',
 }
 
 L3_CAPABLE = [
@@ -46,6 +47,7 @@ L3_CAPABLE = [
     PLUGINS['nec'],
     PLUGINS['ovs'],
     PLUGINS['ryu'],
+    PLUGINS['janus'],
     PLUGINS['brocade'],
     PLUGINS['plumgrid'],
 ]
@@ -93,6 +95,8 @@ def upgrade(active_plugins=None, options=None):
         upgrade_nec()
     elif PLUGINS['ryu'] in active_plugins:
         upgrade_ryu()
+    elif PLUGINS['janus'] in active_plugins:
+        upgrade_janus()
     elif PLUGINS['brocade'] in active_plugins:
         upgrade_brocade()
         # Brocade plugin imports linux bridge models too
@@ -357,6 +361,9 @@ def upgrade_ryu():
     )
 
 
+def upgrade_janus():
+    upgrade_ryu()
+
 def upgrade_brocade():
     op.create_table(
         'brocadenetworks',
@@ -472,6 +479,8 @@ def downgrade(active_plugins=None, options=None):
         downgrade_nec()
     elif PLUGINS['ryu'] in active_plugins:
         downgrade_ryu()
+    elif PLUGINS['janus'] in active_plugins:
+        downgrade_janus()
     elif PLUGINS['brocade'] in active_plugins:
         # Brocade plugin imports linux bridge models too
         downgrade_brocade()
@@ -531,6 +540,8 @@ def downgrade_nec():
 def downgrade_ryu():
     op.drop_table('ofp_server')
 
+def downgrade_janus():
+    downgrade_ryu()
 
 def downgrade_brocade():
     op.drop_table('brocadenetworks')

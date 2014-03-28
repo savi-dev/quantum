@@ -37,7 +37,8 @@ migration_for_plugins = [
     'neutron.plugins.nec.nec_plugin.NECPluginV2',
     'neutron.plugins.nicira.NeutronPlugin.NvpPluginV2',
     'neutron.plugins.openvswitch.ovs_neutron_plugin.OVSNeutronPluginV2',
-    'neutron.plugins.ryu.ryu_neutron_plugin.RyuNeutronPluginV2'
+    'neutron.plugins.ryu.ryu_neutron_plugin.RyuNeutronPluginV2',
+    'neutron.plugins.janus.janus_neutron_plugin.JanusNeutronPluginV2'
 ]
 
 from alembic import op
