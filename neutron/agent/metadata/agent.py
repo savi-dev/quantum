@@ -49,6 +49,8 @@ class MetadataProxyHandler(object):
                    help=_("Admin tenant name")),
         cfg.StrOpt('auth_url',
                    help=_("Authentication URL")),
+        cfg.StrOpt('neutron_url',
+                   help=_("Neutron URL"), default='http://localhost:9696'),
         cfg.StrOpt('auth_strategy', default='keystone',
                    help=_("The type of authentication to use")),
         cfg.StrOpt('auth_region',
@@ -80,8 +82,8 @@ class MetadataProxyHandler(object):
             auth_url=self.conf.auth_url,
             auth_strategy=self.conf.auth_strategy,
             region_name=self.conf.auth_region,
-            auth_token=self.auth_info.get('auth_token'),
-            endpoint_url=self.auth_info.get('endpoint_url'),
+            auth_token=None, #self.auth_info.get('auth_token'),
+            endpoint_url=self.conf.neutron_url, #self.auth_info.get('endpoint_url'),
             endpoint_type=self.conf.endpoint_type
         )
         return qclient
@@ -123,7 +125,7 @@ class MetadataProxyHandler(object):
             network_id=networks,
             fixed_ips=['ip_address=%s' % remote_address])['ports']
 
-        self.auth_info = qclient.get_auth_info()
+        #self.auth_info = qclient.get_auth_info()
         if len(ports) == 1:
             return ports[0]['device_id'], ports[0]['tenant_id']
         return None, None
