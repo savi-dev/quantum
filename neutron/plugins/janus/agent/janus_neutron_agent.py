@@ -128,6 +128,7 @@ class OVSBridge(ovs_lib.OVSBridge):
         self.run_vsctl(["set", "controller", self.br_name, 'connection_mode=out-of-band'])
         self.run_vsctl(["set", "controller", self.br_name, 'controller_rate_limit=%s' % self.ctrl_rate])
         self.run_vsctl(["set", "controller", self.br_name, 'controller_burst_limit=%s' % self.ctrl_burst])
+        self.run_vsctl(["set-fail-mode", self.br_name, 'secure'])
         
     def set_manager(self, target):
         self.run_vsctl(["set-manager", target])
