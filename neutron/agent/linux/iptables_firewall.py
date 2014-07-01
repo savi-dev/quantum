@@ -119,9 +119,9 @@ class IptablesFirewallDriver(firewall.FirewallDriver):
 
     def _add_fallback_chain_v4v6(self):
         self.iptables.ipv4['filter'].add_chain('sg-fallback')
-        self.iptables.ipv4['filter'].add_rule('sg-fallback', '-j RETURN')
+        self.iptables.ipv4['filter'].add_rule('sg-fallback', '-j DROP')
         self.iptables.ipv6['filter'].add_chain('sg-fallback')
-        self.iptables.ipv6['filter'].add_rule('sg-fallback', '-j RETURN')
+        self.iptables.ipv6['filter'].add_rule('sg-fallback', '-j DROP')
 
     def _add_chain_by_name_v4v6(self, chain_name):
         self.iptables.ipv6['filter'].add_chain(chain_name)
