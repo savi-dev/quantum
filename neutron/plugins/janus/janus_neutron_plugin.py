@@ -29,12 +29,14 @@ from neutron.db import api as db
 from neutron.db import db_base_plugin_v2
 from neutron.db import dhcp_rpc_base
 from neutron.db import external_net_db
+from neutron.db import extradhcpopt_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db
 from neutron.db import l3_rpc_base
 from neutron.db import models_v2
 from neutron.db import portbindings_base
 from neutron.db import securitygroups_rpc_base as sg_db_rpc
+from neutron.extensions import extra_dhcp_opt as edo_ext
 from neutron.extensions import portbindings
 from neutron.openstack.common import log as logging
 from neutron.openstack.common import rpc
@@ -98,11 +100,12 @@ class JanusNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
                          extraroute_db.ExtraRoute_db_mixin,
                          l3_gwmode_db.L3_NAT_db_mixin,
                          sg_db_rpc.SecurityGroupServerRpcMixin,
-                         portbindings_base.PortBindingBaseMixin):
+                         portbindings_base.PortBindingBaseMixin,
+                         extradhcpopt_db.ExtraDhcpOptMixin):
 
     _supported_extension_aliases = ["external-net", "router", "ext-gw-mode",
                                     "extraroute", "security-group",
-                                    "binding"]
+                                    "binding", "extra_dhcp_opt"]
 
     @property
     def supported_extension_aliases(self):
@@ -227,12 +230,15 @@ class JanusNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
         with session.begin(subtransactions=True):
             self._ensure_default_security_group_on_port(context, port)
             sgids = self._get_security_groups_on_port(context, port)
+            dhcp_opts = port['port'].get(edo_ext.EXTRADHCPOPTS, [])
             port = super(JanusNeutronPluginV2, self).create_port(context, port)
             self._process_portbindings_create_and_update(context,
                                                          port_data,
                                                          port)
             self._process_port_create_security_group(
                 context, port, sgids)
+            self._process_port_create_extra_dhcp_opts(context, port,
+                                                      dhcp_opts)
         self.notify_security_groups_member_updated(context, port)
         #self.iface_client.create_network_id(port['id'], port['network_id'])
         return port
@@ -266,6 +272,8 @@ class JanusNeutronPluginV2(db_base_plugin_v2.NeutronDbPluginV2,
                                                          updated_port)
             need_port_update_notify = self.update_security_group_on_port(
                 context, id, port, original_port, updated_port)
+            need_port_update_notify |= self._update_extra_dhcp_opts_on_port(
+                context, id, port, updated_port)
 
         need_port_update_notify |= self.is_security_group_member_updated(
             context, original_port, updated_port)
