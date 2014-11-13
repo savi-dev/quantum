@@ -517,6 +517,8 @@ class Dnsmasq(DhcpLocalProcess):
         if not option.isdigit():
             option = 'option:%s' % option
 
+        if len(args) > 0 and args[0] == '':
+	    return ','.join((set_tag + tag, '%s' % option))
         return ','.join((set_tag + tag, '%s' % option) + args)
 
     @classmethod
