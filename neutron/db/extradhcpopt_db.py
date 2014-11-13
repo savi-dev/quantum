@@ -24,6 +24,7 @@ from neutron.db import model_base
 from neutron.db import models_v2
 from neutron.extensions import extra_dhcp_opt as edo_ext
 from neutron.openstack.common import log as logging
+import traceback
 
 LOG = logging.getLogger(__name__)
 
@@ -37,19 +38,19 @@ class ExtraDhcpOpt(model_base.BASEV2, models_v2.HasId):
     tag will be referenced in the <network_id>/host file.
     """
     port_id = sa.Column(sa.String(36),
-                        sa.ForeignKey('ports.id', ondelete="CASCADE"),
-                        nullable=False)
-    opt_name = sa.Column(sa.String(64), nullable=False)
-    opt_value = sa.Column(sa.String(255), nullable=False)
+                        sa.ForeignKey('ports.id', ondelete = "CASCADE"),
+                        nullable = False)
+    opt_name = sa.Column(sa.String(64), nullable = False)
+    opt_value = sa.Column(sa.String(255), nullable = False)
     __table_args__ = (sa.UniqueConstraint('port_id',
                                           'opt_name',
-                                          name='uidx_portid_optname'),)
+                                          name = 'uidx_portid_optname'),)
 
     # Add a relationship to the Port model in order to instruct SQLAlchemy to
     # eagerly load extra_dhcp_opts bindings
     ports = orm.relationship(
         models_v2.Port,
-        backref=orm.backref("dhcp_opts", lazy='joined', cascade='delete'))
+        backref = orm.backref("dhcp_opts", lazy = 'joined', cascade = 'delete'))
 
 
 class ExtraDhcpOptMixin(object):
@@ -60,12 +61,12 @@ class ExtraDhcpOptMixin(object):
                                              extra_dhcp_opts):
         if not extra_dhcp_opts:
             return port
-        with context.session.begin(subtransactions=True):
+        with context.session.begin(subtransactions = True):
             for dopt in extra_dhcp_opts:
                 db = ExtraDhcpOpt(
-                    port_id=port['id'],
-                    opt_name=dopt['opt_name'],
-                    opt_value=dopt['opt_value'])
+                    port_id = port['id'],
+                    opt_name = dopt['opt_name'],
+                    opt_value = dopt['opt_value'])
                 context.session.add(db)
         return self._extend_port_extra_dhcp_opts_dict(context, port)
 
@@ -79,41 +80,76 @@ class ExtraDhcpOptMixin(object):
         return [{'opt_name': r.opt_name, 'opt_value': r.opt_value}
                 for r in binding]
 
+    def _delete_extradhcp_for_port(self, context, port_id):
+        try:
+            print "*************\n"
+            print "delete all extra dhcp\n"
+            query = self._model_query(context, ExtraDhcpOpt)
+            opts = query.filter(ExtraDhcpOpt.port_id == port_id).all()
+
+            context.session.delete(opts)
+        except:
+            traceback.print_exc()
+            pass
+
     def _update_extra_dhcp_opts_on_port(self, context, id, port,
-                                        updated_port=None):
+                                        updated_port = None):
         # It is not necessary to update in a transaction, because
         # its called from within one from ovs_neutron_plugin.
         dopts = port['port'].get(edo_ext.EXTRADHCPOPTS)
 
         if dopts:
             opt_db = self._model_query(
-                context, ExtraDhcpOpt).filter_by(port_id=id).all()
+                context, ExtraDhcpOpt).filter_by(port_id = id).all()
             # if there are currently no dhcp_options associated to
             # this port, Then just insert the new ones and be done.
             if not opt_db:
-                with context.session.begin(subtransactions=True):
+                with context.session.begin(subtransactions = True):
                     for dopt in dopts:
+                        if 'delete-all' == dopt['opt_name']:
+                            continue
                         db = ExtraDhcpOpt(
-                            port_id=id,
-                            opt_name=dopt['opt_name'],
-                            opt_value=dopt['opt_value'])
+                            port_id = id,
+                            opt_name = dopt['opt_name'],
+                            opt_value = dopt['opt_value'])
                         context.session.add(db)
             else:
+                deleteAll = False
                 for upd_rec in dopts:
-                    with context.session.begin(subtransactions=True):
-                        for opt in opt_db:
-                            if opt['opt_name'] == upd_rec['opt_name']:
-                                if opt['opt_value'] != upd_rec['opt_value']:
-                                    opt.update(
-                                        {'opt_value': upd_rec['opt_value']})
-                                break
-                        # this handles the adding an option that didn't exist.
-                        else:
-                            db = ExtraDhcpOpt(
-                                port_id=id,
-                                opt_name=upd_rec['opt_name'],
-                                opt_value=upd_rec['opt_value'])
-                            context.session.add(db)
+                    print "%s\n" % upd_rec
+                    if 'delete-all' == upd_rec['opt_name']:
+                        deleteAll = True
+                        with context.session.begin(subtransactions = True):
+                            for opt in opt_db:
+                                context.session.delete(opt)
+                        with context.session.begin(subtransactions = True):
+                            for dopt in dopts:
+                                if 'delete-all' == dopt['opt_name']:
+                                    continue
+                                db = ExtraDhcpOpt(
+                                    port_id = id,
+                                    opt_name = dopt['opt_name'],
+                                    opt_value = dopt['opt_value'])
+                                context.session.add(db)
+                        break
+                if deleteAll == False:
+                    for upd_rec in dopts:
+                        if 'delete-all' == upd_rec['opt_name']:
+                            continue
+                        with context.session.begin(subtransactions = True):
+                            for opt in opt_db:
+                                if opt['opt_name'] == upd_rec['opt_name']:
+                                    if opt['opt_value'] != upd_rec['opt_value']:
+                                        opt.update(
+                                            {'opt_value': upd_rec['opt_value']})
+                                    break
+                            # this handles the adding an option that didn't exist.
+                            else:
+                                db = ExtraDhcpOpt(
+                                    port_id = id,
+                                    opt_name = upd_rec['opt_name'],
+                                    opt_value = upd_rec['opt_value'])
+                                context.session.add(db)
 
             if updated_port:
                 edolist = self._get_port_extra_dhcp_opts_binding(context, id)
