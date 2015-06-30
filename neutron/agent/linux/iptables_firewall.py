@@ -201,8 +201,8 @@ class IptablesFirewallDriver(firewall.FirewallDriver):
                                    % mac)
                 else:
                     table.add_rule(chain_name,
-                                   '-m mac --mac-source %s -s %s -j RETURN'
-                                   % (mac, ip))
+                                   '-m mac --mac-source %s -j RETURN'
+                                   % (mac))
             table.add_rule(chain_name, '-j DROP')
             rules.append('-j $%s' % chain_name)
 
