@@ -289,8 +289,9 @@ class JanusOVSInterfaceDriver(OVSInterfaceDriver):
         if bridge == self.conf.ovs_integration_bridge:
             try:
                 if network_id == None:
-                    network_id = self.device2netid[device_name]
-                self.client.deletePort(network_id, datapath_id, port_no)
+                    network_id = self.device2netid.get(device_name, None)
+                if port_no and int(port_no) > 0:
+                    self.client.deletePort(network_id, datapath_id, port_no)
             except:
                 #traceback.print_exc()
                 pass

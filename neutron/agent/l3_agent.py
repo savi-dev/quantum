@@ -213,8 +213,8 @@ class L3NATAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
         self.updated_routers = set()
         self.removed_routers = set()
         self.sync_progress = False
-        if self.conf.use_namespaces:
-            self._destroy_router_namespaces(self.conf.router_id)
+        #if self.conf.use_namespaces:
+        #    self._destroy_router_namespaces(self.conf.router_id)
 
         self.rpc_loop = loopingcall.FixedIntervalLoopingCall(
             self._rpc_loop)
