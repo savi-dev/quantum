@@ -38,6 +38,9 @@ from neutron.openstack.common import uuidutils
 LOG = logging.getLogger(__name__)
 
 OPTS = [
+    cfg.StrOpt('dhcp_script',
+               default=None,
+               help=_('script that is run by dnsmasq on new lease or release')),
     cfg.StrOpt('dhcp_confs',
                default='$state_path/dhcp',
                help=_('Location to store DHCP server config files')),
@@ -350,6 +353,8 @@ class Dnsmasq(DhcpLocalProcess):
                    min(possible_leases, self.conf.dnsmasq_lease_max))
 
         cmd.append('--conf-file=%s' % self.conf.dnsmasq_config_file)
+        if self.conf.dhcp_script:
+            cmd.append('--dhcp-script=%s' %self.conf.dhcp_script)
         if self.conf.dnsmasq_dns_server:
             cmd.append('--server=%s' % self.conf.dnsmasq_dns_server)
 
@@ -407,12 +412,16 @@ class Dnsmasq(DhcpLocalProcess):
                                        self.conf.dhcp_domain)
                 set_tag = ''
                 if getattr(port, 'extra_dhcp_opts', False):
+                    host_lease = ''
                     if self.version >= self.MINIMUM_VERSION:
                         set_tag = 'set:'
+                    for opt in port.extra_dhcp_opts:
+                        if opt.opt_name=='51':
+                            host_lease = ',%s' % opt.opt_value
 
-                    buf.write('%s,%s,%s,%s%s\n' %
+                    buf.write('%s,%s,%s,%s%s%s\n' %
                               (port.mac_address, name, alloc.ip_address,
-                               set_tag, port.id))
+                               set_tag, port.id, host_lease))
                 else:
                     buf.write('%s,%s,%s\n' %
                               (port.mac_address, name, alloc.ip_address))
@@ -518,7 +527,7 @@ class Dnsmasq(DhcpLocalProcess):
             option = 'option:%s' % option
 
         if len(args) > 0 and args[0] == '':
-	    return ','.join((set_tag + tag, '%s' % option))
+            return ','.join((set_tag + tag, '%s' % option))
         return ','.join((set_tag + tag, '%s' % option) + args)
 
     @classmethod
