@@ -143,6 +143,7 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         agent_conf = self.conf.AGENT
         ovs_conf = self.conf.OVS
 
+        self.enable_local_vlan = ovs_conf.local_vlan
         self.fullsync = False
         # init bridge classes with configured datapath type.
         self.br_int_cls, self.br_phys_cls, self.br_tun_cls = (
@@ -154,6 +155,13 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         self.veth_mtu = agent_conf.veth_mtu
         self.available_local_vlans = set(moves.range(p_const.MIN_VLAN_TAG,
                                                      p_const.MAX_VLAN_TAG))
+        print "*************************************"
+        print "*************************************"
+        print "*************************************"
+        print self.available_local_vlans
+        print "*************************************"
+        print "*************************************"
+        print "*************************************"
         self.tunnel_types = agent_conf.tunnel_types or []
         self.l2_pop = agent_conf.l2_population
         # TODO(ethuleau): Change ARP responder so it's not dependent on the
@@ -339,6 +347,10 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
             try:
                 local_vlan_map = by_name[port.port_name]['other_config']
                 local_vlan = by_name[port.port_name]['tag']
+                if not self.enable_local_vlan:
+                    local_vlan = local_vlan_map.get('tag', None)
+                    if local_vlan:
+                       local_vlan = int(local_vlan)
             except KeyError:
                 continue
             if not local_vlan:
@@ -346,6 +358,12 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
             net_uuid = local_vlan_map.get('net_uuid')
             if (net_uuid and net_uuid not in self._local_vlan_hints
                 and local_vlan != constants.DEAD_VLAN_TAG):
+                print "removed from local flan list"
+                print "removed from local flan list"
+                print "removed from local flan list"
+                print "removed from local flan list"
+                print "removed from local flan list"
+                print local_vlan
                 self.available_local_vlans.remove(local_vlan)
                 self._local_vlan_hints[local_vlan_map['net_uuid']] = \
                     local_vlan
@@ -810,8 +828,12 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         port_info = self.int_br.get_ports_attributes(
             "Port", columns=["name", "tag", "other_config"],
             ports=port_names, if_exists=True)
-        info_by_port = {x['name']: [x['tag'], x['other_config']]
-                        for x in port_info}
+        if self.enable_local_vlan:
+            info_by_port = {x['name']: [x['tag'], x['other_config']]
+                           for x in port_info}
+        else:
+            info_by_port = {x['name']: [x['other_config'].get('tag', None), x['other_config']]
+                           for x in port_info}
         for port_detail in need_binding_ports:
             lvm = self.local_vlan_map.get(port_detail['network_id'])
             if not lvm:
@@ -822,16 +844,30 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
                 other_config = cur_info[1] or {}
                 other_config['tag'] = lvm.vlan
                 self.int_br.set_db_attribute(
-                    "Port", port.port_name, "other_config", other_config)
+                      "Port", port.port_name, "other_config", other_config)
 
     def _bind_devices(self, need_binding_ports):
         devices_up = []
         devices_down = []
         failed_devices = []
         port_names = [p['vif_port'].port_name for p in need_binding_ports]
+        datapath_id = self.int_br.get_datapath_id()
+        print "**************************"
+        print "**************************"
+        print "**************************"
+        print "**************************"
+        print "**************************"
+        print datapath_id
+        print "**************************"
+        print "**************************"
+        print "**************************"
         port_info = self.int_br.get_ports_attributes(
-            "Port", columns=["name", "tag"], ports=port_names, if_exists=True)
-        tags_by_name = {x['name']: x['tag'] for x in port_info}
+            "Port", columns=["name", "tag", "other_config"], ports=port_names, if_exists=True)
+        ofport_by_name = {x['name']: self.int_br.get_port_ofport(x['name']) for x in port_info}
+        if self.enable_local_vlan:
+            tags_by_name = {x['name']: x['tag'] for x in port_info}
+        else:
+            tags_by_name = {x['name']: x['other_config'].get('tag', None) for x in port_info}
         for port_detail in need_binding_ports:
             lvm = self.local_vlan_map.get(port_detail['network_id'])
             if not lvm:
@@ -840,12 +876,21 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
                 continue
             port = port_detail['vif_port']
             device = port_detail['device']
+            print "**************************"
+            print "**************************"
+            print "**************************"
+            print port
+            print device
+            print "**************************"
+            print "**************************"
+            print "**************************"
             # Do not bind a port if it's already bound
             cur_tag = tags_by_name.get(port.port_name)
             if cur_tag is None:
                 LOG.debug("Port %s was deleted concurrently, skipping it",
                           port.port_name)
                 continue
+            cur_tag = int(cur_tag)
             # Uninitialized port has tag set to []
             if cur_tag and cur_tag != lvm.vlan:
                 self.int_br.delete_flows(in_port=port.ofport)
@@ -853,8 +898,9 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
                 self.setup_arp_spoofing_protection(self.int_br,
                                                    port, port_detail)
             if cur_tag != lvm.vlan:
-                self.int_br.set_db_attribute(
-                    "Port", port.port_name, "tag", lvm.vlan)
+                if self.enable_local_vlan: 
+                    self.int_br.set_db_attribute(
+                        "Port", port.port_name, "tag", lvm.vlan)
 
             # update plugin about port status
             # FIXME(salv-orlando): Failures while updating device status
@@ -963,12 +1009,26 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         :param port: an ovs_lib.VifPort object.
         '''
         # Don't kill a port if it's already dead
-        cur_tag = self.int_br.db_get_val("Port", port.port_name, "tag",
-                                         log_errors=log_errors)
+        if self.enable_local_vlan:
+            cur_tag = self.int_br.db_get_val("Port", port.port_name, "tag",
+                                             log_errors=log_errors)
+        else:
+            other_config = self.int_br.db_get_val("Port", port.port_name, "other_config",
+                                             log_errors=log_errors)
+            cur_tag = other_config.get('tag', None)
+            if cur_tag:
+                cur_tag = int(cur_tag)
         if cur_tag and cur_tag != constants.DEAD_VLAN_TAG:
-            self.int_br.set_db_attribute("Port", port.port_name, "tag",
-                                         constants.DEAD_VLAN_TAG,
-                                         log_errors=log_errors)
+            if self.enable_local_vlan:
+                self.int_br.set_db_attribute("Port", port.port_name, "tag",
+                                             constants.DEAD_VLAN_TAG,
+                                             log_errors=log_errors)
+            else:
+                other_config = other_config or {}
+                other_config['tag'] = constants.DEAD_VLAN_TAG
+                self.int_br.set_db_attribute("Port", port.port_name, 
+                                             "other_config", other_config,
+                                             log_errors=log_errors)
             self.int_br.drop_port(in_port=port.ofport)
 
     def setup_integration_br(self):
@@ -1353,13 +1413,16 @@ class OVSNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin,
         The returned value is a set of port ids of the ports concerned by a
         vlan tag loss.
         """
-        port_tags = self.int_br.get_port_tag_dict()
+        if self.enable_local_vlan:
+            port_tags = self.int_br.get_port_tag_dict()
+        else:
+            port_tags = self.int_br.get_port_tag_dict_other_config()
         changed_ports = set()
         for lvm in self.local_vlan_map.values():
             for port in lvm.vif_ports.values():
                 if (
                     port.port_name in port_tags
-                    and port_tags[port.port_name] != lvm.vlan
+                    and int(port_tags[port.port_name]) != lvm.vlan
                 ):
                     LOG.info(
                         _LI("Port '%(port_name)s' has lost "

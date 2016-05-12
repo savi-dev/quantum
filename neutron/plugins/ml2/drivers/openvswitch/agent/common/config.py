@@ -61,6 +61,9 @@ ovs_opts = [
                        "mapping, make sure to disconnect it from the "
                        "integration bridge as it won't be managed by the "
                        "agent anymore. Deprecated for ofagent.")),
+    cfg.BoolOpt('local_vlan', default=False,
+                help=_("Disable use of local vlans for separating ports"
+                       "i.e., to disable use of tags on ports")),
     cfg.BoolOpt('use_veth_interconnection', default=False,
                 help=_("Use veths instead of patch ports to interconnect the "
                        "integration bridge to physical networks. "

@@ -468,6 +468,11 @@ class OVSBridge(BaseOVS):
                 external_ids['xs-vif-uuid'])
             return iface_id
 
+    def get_port_tag_dict_other_config(self):
+        results = self.get_ports_attributes(
+            'Port', columns=['name', 'other_config'], if_exists=True)
+        return {p['name']: p['other_config'].get('tag', None) for p in results}
+
     def get_port_tag_dict(self):
         """Get a dict of port names and associated vlan tags.
 
